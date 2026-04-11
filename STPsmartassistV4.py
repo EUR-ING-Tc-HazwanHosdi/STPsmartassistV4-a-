@@ -12,8 +12,18 @@ import bcrypt
 # =========================================================
 # 1. DATABASE LAYER (FIXED SUPABASE SAFE)
 # =========================================================
+import os
+from sqlalchemy import create_engine
+
 DATABASE_URL = os.getenv("DATABASE_URL")
 
+# 👇 PUT IT HERE (DATABASE LAYER SECTION)
+engine = create_engine(
+    DATABASE_URL,
+    connect_args={"sslmode": "require"},
+    pool_pre_ping=True,
+    pool_recycle=300
+)
 engine = None
 DB_OK = False
 
