@@ -3,11 +3,10 @@ import numpy as np
 import pandas as pd
 import cv2
 from PIL import Image
-from datetime import datetime
+import os
 import bcrypt
-import requests
-import base64
 from sqlalchemy import create_engine
+from datetime import datetime
 
 # =========================================================
 # CONFIG
@@ -15,72 +14,95 @@ from sqlalchemy import create_engine
 st.set_page_config("STP Smart Assist SaaS", layout="wide")
 
 # =========================================================
-# DATABASE (PostgreSQL / Supabase)
+# DATABASE (SUPABASE / POSTGRES SAFE LAYER)
 # =========================================================
-DATABASE_URL = "postgresql://USER:PASS@HOST:5432/DB"
+DATABASE_URL = os.getenv("DATABASE_URL")
 
-try:
-    engine = create_engine(DATABASE_URL, connect_args={"sslmode": "require"})
-    DB_MODE = True
-except:
-    DB_MODE = False
-    st.warning("Database offline mode enabled")
+engine = None
+DB_OK = False
 
-# =========================================================
-# PAYPAL CONFIG
-# =========================================================
-PAYPAL_CLIENT_ID = "YOUR_ID"
-PAYPAL_SECRET = "YOUR_SECRET"
-PAYPAL_BASE = "https://api-m.paypal.com"
-
-PRICING = {
-    "pro": "29.00",
-    "premium": "99.00",
-    "enterprise": "199.00"
-}
+if DATABASE_URL:
+    try:
+        engine = create_engine(
+            DATABASE_URL,
+            connect_args={"sslmode": "require"},
+            pool_pre_ping=True,
+            pool_recycle=300
+        )
+        engine.connect()
+        DB_OK = True
+    except:
+        engine = None
+        DB_OK = False
 
 # =========================================================
-# SECURITY
+# SAFE DB FUNCTIONS
 # =========================================================
-def hash_password(p):
-    return bcrypt.hashpw(p.encode(), bcrypt.gensalt()).decode()
-
-def check_password(p, h):
-    return bcrypt.checkpw(p.encode(), h.encode())
-
-# =========================================================
-# REGISTER USER
-# =========================================================
-def register_user(username, password, name):
-    if not DB_MODE:
-        return {"status": False, "msg": "DB not available"}
-
+def db_exec(query, params=()):
+    if not DB_OK:
+        return None
     try:
         with engine.begin() as conn:
-            conn.execute("""
-                INSERT INTO users (username, password, name, plan)
-                VALUES (%s,%s,%s,'basic')
-            """, (username, hash_password(password), name))
+            return conn.execute(query, params)
+    except:
+        return None
+
+
+def db_fetchone(query, params=()):
+    if not DB_OK:
+        return None
+    try:
+        with engine.begin() as conn:
+            return conn.execute(query, params).fetchone()
+    except:
+        return None
+
+# =========================================================
+# AUTH SYSTEM
+# =========================================================
+def hash_pw(p):
+    return bcrypt.hashpw(p.encode(), bcrypt.gensalt()).decode()
+
+def check_pw(p, h):
+    return bcrypt.checkpw(p.encode(), h.encode())
+
+
+def register_user(username, password, name):
+
+    if not DB_OK:
+        return {"status": False, "msg": "Database offline"}
+
+    try:
+        db_exec("""
+            INSERT INTO users (username, password, name, plan)
+            VALUES (%s,%s,%s,'basic')
+        """, (username, hash_pw(password), name))
 
         return {"status": True}
 
     except Exception as e:
         return {"status": False, "msg": str(e)}
 
-# =========================================================
-# LOGIN USER
-# =========================================================
+
 def authenticate(username, password):
-    if not DB_MODE:
+
+    # fallback mode (NO DB)
+    if not DB_OK:
+        if username == "demo" and password == "1234":
+            return {
+                "status": True,
+                "username": "demo",
+                "name": "Demo User",
+                "plan": "basic"
+            }
         return {"status": False}
 
-    with engine.begin() as conn:
-        user = conn.execute("""
-            SELECT username, password, name, plan
-            FROM users WHERE username=%s
-        """, (username,)).fetchone()
+    user = db_fetchone("""
+        SELECT username, password, name, plan
+        FROM users WHERE username=%s
+    """, (username,))
 
-    if user and check_password(password, user[1]):
+    if user and check_pw(password, user[1]):
         return {
             "status": True,
             "username": user[0],
@@ -91,97 +113,14 @@ def authenticate(username, password):
     return {"status": False}
 
 # =========================================================
-# PAYPAL TOKEN
-# =========================================================
-def get_token():
-    auth = base64.b64encode(
-        f"{PAYPAL_CLIENT_ID}:{PAYPAL_SECRET}".encode()
-    ).decode()
-
-    r = requests.post(
-        f"{PAYPAL_BASE}/v1/oauth2/token",
-        headers={"Authorization": f"Basic {auth}"},
-        data={"grant_type": "client_credentials"}
-    )
-    return r.json()["access_token"]
-
-# =========================================================
-# CREATE PAYMENT
-# =========================================================
-def create_payment(plan, username):
-    token = get_token()
-
-    r = requests.post(
-        f"{PAYPAL_BASE}/v2/checkout/orders",
-        headers={
-            "Authorization": f"Bearer {token}",
-            "Content-Type": "application/json"
-        },
-        json={
-            "intent": "CAPTURE",
-            "purchase_units": [{
-                "amount": {
-                    "currency_code": "MYR",
-                    "value": PRICING[plan]
-                },
-                "description": f"{plan} plan upgrade"
-            }]
-        }
-    )
-
-    order = r.json()
-
-    if DB_MODE:
-        with engine.begin() as conn:
-            conn.execute("""
-                INSERT INTO payments (username, plan, paypal_order_id, status)
-                VALUES (%s,%s,%s,'PENDING')
-            """, (username, plan, order["id"]))
-
-    return order
-
-# =========================================================
-# AUTO PAYMENT CHECK (NO WEBHOOK)
-# =========================================================
-def check_payments():
-    if not DB_MODE:
-        return
-
-    token = get_token()
-
-    with engine.begin() as conn:
-        rows = conn.execute("""
-            SELECT username, plan, paypal_order_id
-            FROM payments WHERE status='PENDING'
-        """).fetchall()
-
-    for r in rows:
-        username, plan, order_id = r
-
-        res = requests.get(
-            f"{PAYPAL_BASE}/v2/checkout/orders/{order_id}",
-            headers={"Authorization": f"Bearer {token}"}
-        ).json()
-
-        if res.get("status") == "COMPLETED":
-            with engine.begin() as conn:
-                conn.execute("""
-                    UPDATE payments SET status='PAID'
-                    WHERE paypal_order_id=%s
-                """, (order_id,))
-
-                conn.execute("""
-                    UPDATE users SET plan=%s
-                    WHERE username=%s
-                """, (plan, username))
-
-# =========================================================
-# ENGINE (YOUR STP SYSTEM)
+# STP PROCESS ENGINE
 # =========================================================
 def process_engine(data):
-    svi = data["SV30"] / data["MLSS"] * 1000
 
-    findings, actions = [], []
+    svi = data["SV30"] / data["MLSS"] * 1000 if data["MLSS"] else 0
+
+    findings = []
+    actions = []
 
     if data["DO"] < 1.5:
         findings.append("Low DO")
@@ -189,11 +128,11 @@ def process_engine(data):
 
     if svi > 150:
         findings.append("Bulking Sludge")
-        actions.append("Check filaments")
+        actions.append("Increase RAS")
 
     if data["NH3"] > 10:
-        findings.append("High NH3")
-        actions.append("Increase nitrification")
+        findings.append("High Ammonia")
+        actions.append("Improve nitrification")
 
     if not findings:
         findings.append("System Stable")
@@ -206,7 +145,7 @@ def process_engine(data):
     }
 
 # =========================================================
-# IMAGE ANALYSIS
+# IMAGE ANALYSIS ENGINE
 # =========================================================
 def image_engine(img):
     img = np.array(img)
@@ -215,7 +154,7 @@ def image_engine(img):
 
     foam = np.sum(edges > 0) / edges.size
 
-    return "Foaming Sludge" if foam > 0.15 else "Normal"
+    return "Foaming Sludge" if foam > 0.15 else "Normal Condition"
 
 # =========================================================
 # SESSION
@@ -227,23 +166,24 @@ if "user" not in st.session_state:
 # AUTH UI
 # =========================================================
 if st.session_state.user is None:
-    st.title("🔐 STP Smart Assist SaaS")
 
-    mode = st.radio("Mode", ["Login", "Register"])
+    st.title("🌊 STP Smart Assist SaaS")
 
-    if mode == "Register":
+    menu = st.radio("Access", ["Login", "Register"])
+
+    if menu == "Register":
         u = st.text_input("Username")
         p = st.text_input("Password", type="password")
         n = st.text_input("Name")
 
-        if st.button("Create"):
+        if st.button("Create Account"):
             res = register_user(u, p, n)
             if res["status"]:
                 st.success("Account created")
             else:
-                st.error(res.get("msg"))
+                st.error(res["msg"])
 
-    if mode == "Login":
+    if menu == "Login":
         u = st.text_input("Username")
         p = st.text_input("Password", type="password")
 
@@ -258,42 +198,14 @@ if st.session_state.user is None:
     st.stop()
 
 # =========================================================
-# USER SESSION
+# DASHBOARD
 # =========================================================
 user = st.session_state.user
 
-# =========================================================
-# AUTO CHECK PAYMENTS
-# =========================================================
-check_payments()
-
-# =========================================================
-# SIDEBAR
-# =========================================================
-st.sidebar.title(user["name"])
+st.sidebar.title("👤 " + user["name"])
 st.sidebar.write("Plan:", user["plan"])
 
-if st.sidebar.button("Logout"):
-    st.session_state.user = None
-    st.rerun()
-
-# =========================================================
-# UPGRADE SYSTEM
-# =========================================================
-if user["plan"] != "premium":
-    plan = st.sidebar.selectbox("Upgrade", list(PRICING.keys()))
-
-    if st.sidebar.button("Pay with PayPal"):
-        order = create_payment(plan, user["username"])
-
-        for link in order["links"]:
-            if link["rel"] == "approve":
-                st.sidebar.markdown(f"[Pay Now]({link['href']})")
-
-# =========================================================
-# DASHBOARD INPUTS
-# =========================================================
-st.title("🌊 STP Dashboard")
+st.title("📊 STP Dashboard")
 
 data = {
     "SV30": st.sidebar.number_input("SV30", 250),
@@ -304,9 +216,6 @@ data = {
 
 result = process_engine(data)
 
-# =========================================================
-# DASHBOARD UI
-# =========================================================
 col1, col2 = st.columns(2)
 
 with col1:
@@ -316,7 +225,7 @@ with col1:
     st.metric("SVI", result["SVI"])
 
 with col2:
-    st.subheader("AI Visual")
+    st.subheader("Image AI Analysis")
 
     if user["plan"] in ["premium", "enterprise"]:
         file = st.file_uploader("Upload Image")
@@ -325,23 +234,24 @@ with col2:
             st.image(img)
             st.success(image_engine(img))
     else:
-        st.warning("Upgrade required")
+        st.warning("Upgrade required for AI Vision")
 
 # =========================================================
-# HISTORY (OPTIONAL DB FEATURE)
+# SAVE HISTORY (OPTIONAL)
 # =========================================================
-if DB_MODE and user["plan"] != "basic":
-    if st.button("Save Record"):
-        with engine.begin() as conn:
-            conn.execute("""
-                INSERT INTO history (username, sv30, do, mlss, nh3, svi, created_at)
-                VALUES (%s,%s,%s,%s,%s,%s,%s)
-            """, (
-                user["username"],
-                data["SV30"],
-                data["DO"],
-                data["MLSS"],
-                data["NH3"],
-                result["SVI"],
-                datetime.now()
-            ))
+if DB_OK and st.button("Save Record"):
+
+    db_exec("""
+        INSERT INTO history (username, sv30, do, mlss, nh3, svi, created_at)
+        VALUES (%s,%s,%s,%s,%s,%s,%s)
+    """, (
+        user["username"],
+        data["SV30"],
+        data["DO"],
+        data["MLSS"],
+        data["NH3"],
+        result["SVI"],
+        datetime.now()
+    ))
+
+    st.success("Saved to database")
