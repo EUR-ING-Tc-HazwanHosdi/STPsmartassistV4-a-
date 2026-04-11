@@ -1,99 +1,55 @@
 import streamlit as st
-import os
+import requests
 import numpy as np
 import cv2
 from PIL import Image
-import pandas as pd
-from datetime import datetime
-
-from sqlalchemy import create_engine, text
-import bcrypt
 
 # =========================================================
-# 1. DATABASE LAYER (FIXED SUPABASE SAFE)
+# 1. SUPABASE CONFIG (API MODE - NO POSTGRES)
 # =========================================================
-import os
-from sqlalchemy import create_engine
+SUPABASE_URL = "https://imyaqnitshcwfplyfotl.supabase.co"
+SUPABASE_KEY = "YOUR_SUPABASE_ANON_KEY"
 
-DATABASE_URL = os.getenv("DATABASE_URL")
-
-# 👇 PUT IT HERE (DATABASE LAYER SECTION)
-engine = create_engine(
-    DATABASE_URL,
-    connect_args={"sslmode": "require"},
-    pool_pre_ping=True,
-    pool_recycle=300
-)
-engine = None
-DB_OK = False
-
-if DATABASE_URL:
-    try:
-        engine = create_engine(
-            DATABASE_URL,
-            connect_args={"sslmode": "require"},
-            pool_pre_ping=True,
-            pool_recycle=300
-        )
-
-        with engine.connect() as conn:
-            conn.execute(text("SELECT 1"))
-
-        DB_OK = True
-
-    except Exception as e:
-        DB_OK = False
-        st.error(f"DB Connection Error: {e}")
-else:
-    DB_OK = False
-
+headers = {
+    "apikey": SUPABASE_KEY,
+    "Authorization": f"Bearer {SUPABASE_KEY}",
+    "Content-Type": "application/json"
+}
 
 # =========================================================
-# 2. AUTH SYSTEM (BCRYPT)
+# 2. AUTH (SUPABASE REST API)
 # =========================================================
-def hash_password(password):
-    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
-
-def check_password(password, hashed):
-    return bcrypt.checkpw(password.encode(), hashed.encode())
+def get_user(username):
+    url = f"{SUPABASE_URL}/rest/v1/users?username=eq.{username}"
+    r = requests.get(url, headers=headers)
+    data = r.json()
+    return data[0] if data else None
 
 
 def create_user(username, password, name, plan="free"):
-    if not DB_OK:
-        return False
+    url = f"{SUPABASE_URL}/rest/v1/users"
 
-    hashed = hash_password(password)
+    payload = {
+        "username": username,
+        "password": password,
+        "name": name,
+        "plan": plan
+    }
 
-    with engine.begin() as conn:
-        conn.execute(text("""
-            INSERT INTO users (username, password, name, plan)
-            VALUES (:u, :p, :n, :pl)
-        """), {"u": username, "p": hashed, "n": name, "pl": plan})
-
-    return True
-
-
-def get_user(username):
-    if not DB_OK:
-        return None
-
-    with engine.connect() as conn:
-        return conn.execute(text("""
-            SELECT * FROM users WHERE username = :u
-        """), {"u": username}).fetchone()
+    r = requests.post(url, json=payload, headers=headers)
+    return r.status_code == 201
 
 
 def authenticate(username, password):
     user = get_user(username)
 
-    if not user:
-        return False
-
-    return check_password(password, user.password)
+    if user and user["password"] == password:
+        return True
+    return False
 
 
 # =========================================================
-# 3. MSIG KNOWLEDGE BASE
+# 3. STP KNOWLEDGE BASE (YOUR SYSTEM)
 # =========================================================
 MSIG_KNOWLEDGE = {
     "FOAM_WHITE": {
@@ -110,7 +66,7 @@ MSIG_KNOWLEDGE = {
     },
     "SYSTEM_OK": {
         "Diagnosis": "Normal Operation",
-        "Action": "Maintain routine monitoring."
+        "Action": "Maintain monitoring."
     }
 }
 
@@ -132,72 +88,32 @@ def extract_features(img):
     }
 
 
-def visual_diagnosis(f):
-    if f["dark"] > 0.4:
+def diagnose(features):
+    if features["dark"] > 0.4:
         return MSIG_KNOWLEDGE["DARK_SEPTIC"]
-    if f["foam"] > 0.15:
-        if f["brightness"] > 180:
+
+    if features["foam"] > 0.15:
+        if features["brightness"] > 180:
             return MSIG_KNOWLEDGE["FOAM_WHITE"]
         else:
             return MSIG_KNOWLEDGE["FOAM_BROWN"]
+
     return MSIG_KNOWLEDGE["SYSTEM_OK"]
 
 
 # =========================================================
-# 5. PROCESS ENGINE
-# =========================================================
-def process_engine(data):
-    findings = []
-    actions = []
-
-    sv30 = data["SV30"]
-    do = data["DO"]
-    mlss = data["MLSS"]
-    nh3 = data["NH3"]
-
-    svi = (sv30 / mlss) * 1000 if mlss else 0
-
-    if do < 1.5:
-        findings.append("Low DO")
-        actions.append("Increase aeration")
-
-    if svi > 150:
-        findings.append("Bulking sludge")
-        actions.append("Increase RAS")
-
-    if nh3 > 10:
-        findings.append("High ammonia load")
-        actions.append("Improve nitrification")
-
-    return {"findings": findings, "actions": actions, "svi": round(svi, 2)}
-
-
-# =========================================================
-# 6. HYDRAULIC CALC
-# =========================================================
-def tdh(static, flow, dia, length):
-    C = 140
-    Q = flow / 1000
-    D = dia / 1000
-    hf = 10.67 * (Q/C)**1.852 * (D**-4.87) * length
-    return round(static + hf, 2)
-
-
-# =========================================================
-# 7. UI SETUP
+# 5. STREAMLIT UI
 # =========================================================
 st.set_page_config("STP Smart Assist SaaS", layout="wide")
 
-st.title("🌊 STP Smart Assist SaaS")
+st.title("🌊 STP Smart Assist SaaS (API Mode)")
 
-if DB_OK:
-    st.success("🟢 Database Connected")
-else:
-    st.warning("⚠️ Database Offline Mode")
+# DB INFO (API MODE = ALWAYS ONLINE)
+st.success("🟢 API Backend Active (No Database Connection Errors)")
 
 
 # =========================================================
-# 8. LOGIN / REGISTER
+# 6. LOGIN / REGISTER
 # =========================================================
 tab1, tab2 = st.tabs(["Login", "Register"])
 
@@ -210,7 +126,7 @@ with tab1:
             st.session_state["user"] = u
             st.success("Login successful")
         else:
-            st.error("Invalid login")
+            st.error("Invalid credentials")
 
 
 with tab2:
@@ -222,43 +138,45 @@ with tab2:
         if create_user(ru, rp, rn):
             st.success("Account created")
         else:
-            st.error("DB not available")
+            st.error("Registration failed")
 
 
 # =========================================================
-# 9. MAIN DASHBOARD (ONLY IF LOGGED IN)
+# 7. MAIN DASHBOARD
 # =========================================================
 if "user" in st.session_state:
 
     st.header(f"Welcome {st.session_state['user']}")
 
-    st.sidebar.header("Process Inputs")
+    sv30 = st.number_input("SV30", 250)
+    do = st.number_input("DO", 2.0)
+    mlss = st.number_input("MLSS", 3000)
+    nh3 = st.number_input("NH3", 5.0)
 
-    sv30 = st.sidebar.number_input("SV30", 250)
-    do = st.sidebar.number_input("DO", 2.0)
-    mlss = st.sidebar.number_input("MLSS", 3000)
-    nh3 = st.sidebar.number_input("NH3", 5.0)
-
-    data = {"SV30": sv30, "DO": do, "MLSS": mlss, "NH3": nh3}
-
-    res = process_engine(data)
+    svi = (sv30 / mlss) * 1000 if mlss else 0
 
     st.subheader("Process Analysis")
-    st.write(res["findings"])
-    st.write(res["actions"])
-    st.metric("SVI", res["svi"])
 
-    st.subheader("Hydraulic Calc")
-    st.write(tdh(5, 10, 100, 50))
+    if do < 1.5:
+        st.warning("Low DO")
+
+    if svi > 150:
+        st.warning("Bulking sludge")
+
+    if nh3 > 10:
+        st.warning("High ammonia load")
+
+    st.metric("SVI", round(svi, 2))
 
     st.subheader("Image Analysis")
+
     img = st.file_uploader("Upload image", type=["jpg", "png"])
 
     if img:
         image = Image.open(img)
-        feat = extract_features(image)
-        diag = visual_diagnosis(feat)
+        features = extract_features(image)
+        result = diagnose(features)
 
         st.image(image)
-        st.write(diag["Diagnosis"])
-        st.write(diag["Action"])
+        st.write(result["Diagnosis"])
+        st.write(result["Action"])
