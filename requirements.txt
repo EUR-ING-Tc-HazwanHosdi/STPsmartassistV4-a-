@@ -1,9 +1,9 @@
 streamlit
 numpy
 pandas
+pillow
 opencv-python-headless
-Pillow
+sqlalchemy
+psycopg2-binary
 bcrypt
 requests
-sqlalchemy
-psycopg2-binarybinary
