@@ -1,24 +1,16 @@
 import streamlit as st
+import os
 import numpy as np
-import pandas as pd
 import cv2
 from PIL import Image
-import os
-import bcrypt
-from sqlalchemy import create_engine
+import pandas as pd
 from datetime import datetime
-import os
-import streamlit as st
 
-st.write("DEBUG DATABASE_URL:", os.getenv("DATABASE_URL"))
-
-# =========================================================
-# CONFIG
-# =========================================================
-st.set_page_config("STP Smart Assist SaaS", layout="wide")
+from sqlalchemy import create_engine, text
+import bcrypt
 
 # =========================================================
-# DATABASE (SUPABASE / POSTGRES SAFE LAYER)
+# 1. DATABASE LAYER (FIXED SUPABASE SAFE)
 # =========================================================
 DATABASE_URL = os.getenv("DATABASE_URL")
 
@@ -33,229 +25,230 @@ if DATABASE_URL:
             pool_pre_ping=True,
             pool_recycle=300
         )
-        engine.connect()
+
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+
         DB_OK = True
-    except:
-        engine = None
-        DB_OK = False
-
-# =========================================================
-# SAFE DB FUNCTIONS
-# =========================================================
-def db_exec(query, params=()):
-    if not DB_OK:
-        return None
-    try:
-        with engine.begin() as conn:
-            return conn.execute(query, params)
-    except:
-        return None
-
-
-def db_fetchone(query, params=()):
-    if not DB_OK:
-        return None
-    try:
-        with engine.begin() as conn:
-            return conn.execute(query, params).fetchone()
-    except:
-        return None
-
-# =========================================================
-# AUTH SYSTEM
-# =========================================================
-def hash_pw(p):
-    return bcrypt.hashpw(p.encode(), bcrypt.gensalt()).decode()
-
-def check_pw(p, h):
-    return bcrypt.checkpw(p.encode(), h.encode())
-
-
-def register_user(username, password, name):
-
-    if not DB_OK:
-        return {"status": False, "msg": "Database offline"}
-
-    try:
-        db_exec("""
-            INSERT INTO users (username, password, name, plan)
-            VALUES (%s,%s,%s,'basic')
-        """, (username, hash_pw(password), name))
-
-        return {"status": True}
 
     except Exception as e:
-        return {"status": False, "msg": str(e)}
+        DB_OK = False
+        st.error(f"DB Connection Error: {e}")
+else:
+    DB_OK = False
+
+
+# =========================================================
+# 2. AUTH SYSTEM (BCRYPT)
+# =========================================================
+def hash_password(password):
+    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+
+def check_password(password, hashed):
+    return bcrypt.checkpw(password.encode(), hashed.encode())
+
+
+def create_user(username, password, name, plan="free"):
+    if not DB_OK:
+        return False
+
+    hashed = hash_password(password)
+
+    with engine.begin() as conn:
+        conn.execute(text("""
+            INSERT INTO users (username, password, name, plan)
+            VALUES (:u, :p, :n, :pl)
+        """), {"u": username, "p": hashed, "n": name, "pl": plan})
+
+    return True
+
+
+def get_user(username):
+    if not DB_OK:
+        return None
+
+    with engine.connect() as conn:
+        return conn.execute(text("""
+            SELECT * FROM users WHERE username = :u
+        """), {"u": username}).fetchone()
 
 
 def authenticate(username, password):
+    user = get_user(username)
 
-    # fallback mode (NO DB)
-    if not DB_OK:
-        if username == "demo" and password == "1234":
-            return {
-                "status": True,
-                "username": "demo",
-                "name": "Demo User",
-                "plan": "basic"
-            }
-        return {"status": False}
+    if not user:
+        return False
 
-    user = db_fetchone("""
-        SELECT username, password, name, plan
-        FROM users WHERE username=%s
-    """, (username,))
+    return check_password(password, user.password)
 
-    if user and check_pw(password, user[1]):
-        return {
-            "status": True,
-            "username": user[0],
-            "name": user[2],
-            "plan": user[3]
-        }
-
-    return {"status": False}
 
 # =========================================================
-# STP PROCESS ENGINE
+# 3. MSIG KNOWLEDGE BASE
+# =========================================================
+MSIG_KNOWLEDGE = {
+    "FOAM_WHITE": {
+        "Diagnosis": "Young Sludge / High F:M Ratio",
+        "Action": "Reduce WAS to increase sludge age."
+    },
+    "FOAM_BROWN": {
+        "Diagnosis": "Old Sludge / Nocardia",
+        "Action": "Increase wasting + check grease."
+    },
+    "DARK_SEPTIC": {
+        "Diagnosis": "Anaerobic / Low DO",
+        "Action": "Increase aeration immediately."
+    },
+    "SYSTEM_OK": {
+        "Diagnosis": "Normal Operation",
+        "Action": "Maintain routine monitoring."
+    }
+}
+
+
+# =========================================================
+# 4. IMAGE ANALYSIS ENGINE
+# =========================================================
+def extract_features(img):
+    image = np.array(img)
+    gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
+
+    foam = np.mean(gray > 200)
+    dark = np.mean(gray < 50)
+
+    return {
+        "foam": foam,
+        "dark": dark,
+        "brightness": np.mean(gray)
+    }
+
+
+def visual_diagnosis(f):
+    if f["dark"] > 0.4:
+        return MSIG_KNOWLEDGE["DARK_SEPTIC"]
+    if f["foam"] > 0.15:
+        if f["brightness"] > 180:
+            return MSIG_KNOWLEDGE["FOAM_WHITE"]
+        else:
+            return MSIG_KNOWLEDGE["FOAM_BROWN"]
+    return MSIG_KNOWLEDGE["SYSTEM_OK"]
+
+
+# =========================================================
+# 5. PROCESS ENGINE
 # =========================================================
 def process_engine(data):
-
-    svi = data["SV30"] / data["MLSS"] * 1000 if data["MLSS"] else 0
-
     findings = []
     actions = []
 
-    if data["DO"] < 1.5:
+    sv30 = data["SV30"]
+    do = data["DO"]
+    mlss = data["MLSS"]
+    nh3 = data["NH3"]
+
+    svi = (sv30 / mlss) * 1000 if mlss else 0
+
+    if do < 1.5:
         findings.append("Low DO")
         actions.append("Increase aeration")
 
     if svi > 150:
-        findings.append("Bulking Sludge")
+        findings.append("Bulking sludge")
         actions.append("Increase RAS")
 
-    if data["NH3"] > 10:
-        findings.append("High Ammonia")
+    if nh3 > 10:
+        findings.append("High ammonia load")
         actions.append("Improve nitrification")
 
-    if not findings:
-        findings.append("System Stable")
-        actions.append("Maintain operation")
+    return {"findings": findings, "actions": actions, "svi": round(svi, 2)}
 
-    return {
-        "SVI": round(svi, 2),
-        "findings": findings,
-        "actions": actions
-    }
 
 # =========================================================
-# IMAGE ANALYSIS ENGINE
+# 6. HYDRAULIC CALC
 # =========================================================
-def image_engine(img):
-    img = np.array(img)
-    gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
-    edges = cv2.Canny(gray, 50, 150)
+def tdh(static, flow, dia, length):
+    C = 140
+    Q = flow / 1000
+    D = dia / 1000
+    hf = 10.67 * (Q/C)**1.852 * (D**-4.87) * length
+    return round(static + hf, 2)
 
-    foam = np.sum(edges > 0) / edges.size
-
-    return "Foaming Sludge" if foam > 0.15 else "Normal Condition"
-
-# =========================================================
-# SESSION
-# =========================================================
-if "user" not in st.session_state:
-    st.session_state.user = None
 
 # =========================================================
-# AUTH UI
+# 7. UI SETUP
 # =========================================================
-if st.session_state.user is None:
+st.set_page_config("STP Smart Assist SaaS", layout="wide")
 
-    st.title("🌊 STP Smart Assist SaaS")
+st.title("🌊 STP Smart Assist SaaS")
 
-    menu = st.radio("Access", ["Login", "Register"])
+if DB_OK:
+    st.success("🟢 Database Connected")
+else:
+    st.warning("⚠️ Database Offline Mode")
 
-    if menu == "Register":
-        u = st.text_input("Username")
-        p = st.text_input("Password", type="password")
-        n = st.text_input("Name")
-
-        if st.button("Create Account"):
-            res = register_user(u, p, n)
-            if res["status"]:
-                st.success("Account created")
-            else:
-                st.error(res["msg"])
-
-    if menu == "Login":
-        u = st.text_input("Username")
-        p = st.text_input("Password", type="password")
-
-        if st.button("Login"):
-            res = authenticate(u, p)
-            if res["status"]:
-                st.session_state.user = res
-                st.rerun()
-            else:
-                st.error("Invalid login")
-
-    st.stop()
 
 # =========================================================
-# DASHBOARD
+# 8. LOGIN / REGISTER
 # =========================================================
-user = st.session_state.user
+tab1, tab2 = st.tabs(["Login", "Register"])
 
-st.sidebar.title("👤 " + user["name"])
-st.sidebar.write("Plan:", user["plan"])
+with tab1:
+    u = st.text_input("Username")
+    p = st.text_input("Password", type="password")
 
-st.title("📊 STP Dashboard")
+    if st.button("Login"):
+        if authenticate(u, p):
+            st.session_state["user"] = u
+            st.success("Login successful")
+        else:
+            st.error("Invalid login")
 
-data = {
-    "SV30": st.sidebar.number_input("SV30", 250),
-    "DO": st.sidebar.number_input("DO", 2.0),
-    "MLSS": st.sidebar.number_input("MLSS", 3000),
-    "NH3": st.sidebar.number_input("NH3", 5.0)
-}
 
-result = process_engine(data)
+with tab2:
+    ru = st.text_input("Username ", key="ru")
+    rp = st.text_input("Password ", type="password", key="rp")
+    rn = st.text_input("Name ")
 
-col1, col2 = st.columns(2)
+    if st.button("Register"):
+        if create_user(ru, rp, rn):
+            st.success("Account created")
+        else:
+            st.error("DB not available")
 
-with col1:
+
+# =========================================================
+# 9. MAIN DASHBOARD (ONLY IF LOGGED IN)
+# =========================================================
+if "user" in st.session_state:
+
+    st.header(f"Welcome {st.session_state['user']}")
+
+    st.sidebar.header("Process Inputs")
+
+    sv30 = st.sidebar.number_input("SV30", 250)
+    do = st.sidebar.number_input("DO", 2.0)
+    mlss = st.sidebar.number_input("MLSS", 3000)
+    nh3 = st.sidebar.number_input("NH3", 5.0)
+
+    data = {"SV30": sv30, "DO": do, "MLSS": mlss, "NH3": nh3}
+
+    res = process_engine(data)
+
     st.subheader("Process Analysis")
-    st.write(result["findings"])
-    st.write(result["actions"])
-    st.metric("SVI", result["SVI"])
+    st.write(res["findings"])
+    st.write(res["actions"])
+    st.metric("SVI", res["svi"])
 
-with col2:
-    st.subheader("Image AI Analysis")
+    st.subheader("Hydraulic Calc")
+    st.write(tdh(5, 10, 100, 50))
 
-    if user["plan"] in ["premium", "enterprise"]:
-        file = st.file_uploader("Upload Image")
-        if file:
-            img = Image.open(file)
-            st.image(img)
-            st.success(image_engine(img))
-    else:
-        st.warning("Upgrade required for AI Vision")
+    st.subheader("Image Analysis")
+    img = st.file_uploader("Upload image", type=["jpg", "png"])
 
-# =========================================================
-# SAVE HISTORY (OPTIONAL)
-# =========================================================
-if DB_OK and st.button("Save Record"):
+    if img:
+        image = Image.open(img)
+        feat = extract_features(image)
+        diag = visual_diagnosis(feat)
 
-    db_exec("""
-        INSERT INTO history (username, sv30, do, mlss, nh3, svi, created_at)
-        VALUES (%s,%s,%s,%s,%s,%s,%s)
-    """, (
-        user["username"],
-        data["SV30"],
-        data["DO"],
-        data["MLSS"],
-        data["NH3"],
-        result["SVI"],
-        datetime.now()
-    ))
-
-    st.success("Saved to database")
+        st.image(image)
+        st.write(diag["Diagnosis"])
+        st.write(diag["Action"])
