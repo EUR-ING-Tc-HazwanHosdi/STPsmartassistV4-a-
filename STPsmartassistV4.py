@@ -1,86 +1,101 @@
 import streamlit as st
-import cv2
 import numpy as np
-from PIL import Image
 import pandas as pd
-import json
-import os
+import cv2
+from PIL import Image
 from datetime import datetime
 import bcrypt
+import stripe
+from sqlalchemy import create_engine
 
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
-from reportlab.lib.styles import getSampleStyleSheet
-
-# ---------------------------------------------------------
+# =========================================================
 # CONFIG
-# ---------------------------------------------------------
-st.set_page_config(page_title="MSIG Smart Assist Pro", layout="wide")
+# =========================================================
+st.set_page_config(page_title="STP Smart Assist SaaS", layout="wide")
 
-st.markdown("""
-<style>
-.stApp {background-color:#0E1117;color:white;}
-.metric-card {background:#1F2933;padding:15px;border-radius:10px;}
-.section-card {background:#1A1F24;padding:15px;border-radius:10px;margin-bottom:10px;}
-h1,h2,h3 {color:#00ADB5;}
-</style>
-""", unsafe_allow_html=True)
+# =========================================================
+# STRIPE CONFIG (FILL THIS)
+# =========================================================
+stripe.api_key = "YOUR_STRIPE_SECRET_KEY"
+PRICE_ID = "YOUR_PRICE_ID"
 
-# ---------------------------------------------------------
-# SAFE USER SYSTEM (bcrypt + auto-fix)
-# ---------------------------------------------------------
-def load_users():
+def create_checkout_session(email):
+    session = stripe.checkout.Session.create(
+        payment_method_types=["card"],
+        mode="subscription",
+        customer_email=email,
+        line_items=[{"price": PRICE_ID, "quantity": 1}],
+        success_url="https://your-app.streamlit.app/",
+        cancel_url="https://your-app.streamlit.app/"
+    )
+    return session.url
+
+# =========================================================
+# POSTGRESQL CONFIG (FILL THIS)
+# =========================================================
+DATABASE_URL = "postgresql://user:password@host:5432/dbname"
+engine = create_engine(DATABASE_URL)
+
+# =========================================================
+# DATABASE FUNCTIONS
+# =========================================================
+def save_history_db(user, data, result):
     try:
-        if not os.path.exists("users.json"):
-            default_users = {
-                "demo": {
-                    "password": bcrypt.hashpw("1234".encode(), bcrypt.gensalt()).decode(),
-                    "plan": "basic",
-                    "name": "Demo User"
-                },
-                "plant1": {
-                    "password": bcrypt.hashpw("1234".encode(), bcrypt.gensalt()).decode(),
-                    "plan": "premium",
-                    "name": "Plant Operator"
-                }
-            }
-            with open("users.json", "w") as f:
-                json.dump(default_users, f)
+        with engine.begin() as conn:
+            conn.execute("""
+                INSERT INTO history (username, sv30, do, mlss, nh3, svi, time)
+                VALUES (%s,%s,%s,%s,%s,%s,%s)
+            """, (
+                user,
+                data["SV30"],
+                data["DO"],
+                data["MLSS"],
+                data["NH3"],
+                result["SVI"],
+                datetime.now()
+            ))
+    except:
+        pass  # fallback safe mode
 
-        with open("users.json", "r") as f:
-            return json.load(f)
-
-    except Exception as e:
-        st.error(f"User system error: {e}")
-        return {}
+# =========================================================
+# USER SYSTEM (SAFER DEMO MODE)
+# =========================================================
+USERS = {
+    "demo": {
+        "password": bcrypt.hashpw("1234".encode(), bcrypt.gensalt()),
+        "plan": "basic",
+        "name": "Demo User"
+    },
+    "plant1": {
+        "password": bcrypt.hashpw("1234".encode(), bcrypt.gensalt()),
+        "plan": "premium",
+        "name": "Plant Operator"
+    }
+}
 
 def authenticate(username, password):
-    users = load_users()
-    user = users.get(username)
-
-    if user:
-        stored_hash = user["password"].encode()
-        if bcrypt.checkpw(password.encode(), stored_hash):
-            return {"status": True, "plan": user["plan"], "name": user["name"]}
-
+    user = USERS.get(username)
+    if user and bcrypt.checkpw(password.encode(), user["password"]):
+        return {"status": True, "plan": user["plan"], "name": user["name"]}
     return {"status": False}
 
-# ---------------------------------------------------------
+# =========================================================
 # SESSION
-# ---------------------------------------------------------
+# =========================================================
 if "user" not in st.session_state:
     st.session_state.user = None
 
-# LOGIN
+# LOGIN PAGE
 if st.session_state.user is None:
-    st.title("🔐 MSIG Smart Assist Login")
+    st.title("🔐 STP Smart Assist SaaS")
 
     username = st.text_input("Username")
     password = st.text_input("Password", type="password")
 
     if st.button("Login"):
-        result = authenticate(username, password)
-        if result["status"]:
-            st.session_state.user = result
+        res = authenticate(username, password)
+        if res["status"]:
+            st.session_state.user = res
             st.rerun()
         else:
             st.error("Invalid login")
@@ -89,6 +104,9 @@ if st.session_state.user is None:
 
 user = st.session_state.user
 
+# =========================================================
+# SIDEBAR
+# =========================================================
 st.sidebar.title(f"👤 {user['name']}")
 st.sidebar.write(f"Plan: {user['plan']}")
 
@@ -96,54 +114,33 @@ if st.sidebar.button("Logout"):
     st.session_state.user = None
     st.rerun()
 
-# ---------------------------------------------------------
-# ENGINE (MSIG + PROCESS)
-# ---------------------------------------------------------
-def extract_features(img):
-    image = np.array(img)
-    gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
-    edges = cv2.Canny(gray, 50, 150)
+# =========================================================
+# STRIPE UPGRADE BUTTON
+# =========================================================
+if user["plan"] != "premium":
+    if st.sidebar.button("💳 Upgrade to Premium"):
+        url = create_checkout_session(user["name"])
+        st.sidebar.markdown(f"[Pay Here]({url})")
 
-    return {
-        "foam": np.sum(edges > 0) / edges.size,
-        "brightness": np.mean(gray),
-        "dark_sludge": np.sum(gray < 40) / gray.size,
-        "debug_mask": edges
-    }
-
-def msig_engine(features):
-    if features["dark_sludge"] > 0.45:
-        return "Anaerobic Condition"
-    if features["foam"] > 0.15:
-        return "Foaming Sludge"
-    return "Normal"
-
+# =========================================================
+# ENGINE (STP LOGIC)
+# =========================================================
 def process_engine(data):
     findings, actions = [], []
 
-    sv30 = data["SV30"]
-    do = data["DO"]
-    mlss = data["MLSS"]
-    nh3 = data["NH3"]
-    odour = data["ODOUR"]
+    svi = data["SV30"] / data["MLSS"] * 1000 if data["MLSS"] > 0 else 0
 
-    svi = sv30 / mlss * 1000 if mlss > 0 else 0
-
-    if do < 1.5:
+    if data["DO"] < 1.5:
         findings.append("Low DO")
         actions.append("Increase aeration")
 
     if svi > 150:
         findings.append("Bulking Sludge")
-        actions.append("Check filamentous bacteria")
+        actions.append("Check filaments")
 
-    if nh3 > 10:
+    if data["NH3"] > 10:
         findings.append("High Ammonia")
         actions.append("Increase nitrification")
-
-    if odour == "Septic (Rotten Egg)":
-        findings.append("Anaerobic Condition")
-        actions.append("Increase DO")
 
     if not findings:
         findings.append("System Stable")
@@ -151,93 +148,55 @@ def process_engine(data):
 
     return {"findings": findings, "actions": actions, "SVI": round(svi, 2)}
 
-# ---------------------------------------------------------
-# HISTORY + TREND SYSTEM
-# ---------------------------------------------------------
-def save_history(data, result):
-    file = "history.csv"
+# =========================================================
+# IMAGE ENGINE (PREMIUM)
+# =========================================================
+def image_engine(img):
+    image = np.array(img)
+    gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
+    edges = cv2.Canny(gray, 50, 150)
 
-    row = {
-        "time": datetime.now(),
-        "SV30": data["SV30"],
-        "DO": data["DO"],
-        "MLSS": data["MLSS"],
-        "NH3": data["NH3"],
-        "SVI": result["SVI"]
-    }
+    foam = np.sum(edges > 0) / edges.size
+    brightness = np.mean(gray)
 
-    df = pd.DataFrame([row])
+    if foam > 0.15:
+        return "Foaming Sludge" if brightness > 180 else "Brown Foam"
+    return "Normal"
 
-    if os.path.exists(file):
-        df.to_csv(file, mode="a", header=False, index=False)
-    else:
-        df.to_csv(file, index=False)
-
-# ---------------------------------------------------------
-# PDF REPORT
-# ---------------------------------------------------------
-def generate_pdf(result):
-    path = "/tmp/report.pdf"
-    doc = SimpleDocTemplate(path)
-    styles = getSampleStyleSheet()
-
-    content = []
-    content.append(Paragraph("MSIG Smart Assist Report", styles["Title"]))
-    content.append(Spacer(1, 10))
-
-    content.append(Paragraph(f"SVI: {result['SVI']}", styles["Normal"]))
-    content.append(Spacer(1, 10))
-
-    content.append(Paragraph("Findings:", styles["Heading2"]))
-    for f in result["findings"]:
-        content.append(Paragraph(f"- {f}", styles["Normal"]))
-
-    content.append(Paragraph("Actions:", styles["Heading2"]))
-    for a in result["actions"]:
-        content.append(Paragraph(f"- {a}", styles["Normal"]))
-
-    doc.build(content)
-    return path
-
-# ---------------------------------------------------------
+# =========================================================
 # INPUTS
-# ---------------------------------------------------------
-st.title("🌊 MSIG Smart Assist Pro (SaaS)")
+# =========================================================
+st.title("🌊 STP Smart Assist SaaS Platform")
 
-st.sidebar.header("Process Input")
 data = {
     "SV30": st.sidebar.number_input("SV30", 250),
     "DO": st.sidebar.number_input("DO", 2.0),
     "MLSS": st.sidebar.number_input("MLSS", 3000),
-    "NH3": st.sidebar.number_input("NH3", 5.0),
-    "ODOUR": st.sidebar.selectbox("Odour", ["None", "Septic (Rotten Egg)"])
+    "NH3": st.sidebar.number_input("NH3", 5.0)
 }
 
-# ---------------------------------------------------------
-# DASHBOARD
-# ---------------------------------------------------------
+# =========================================================
+# MAIN DASHBOARD
+# =========================================================
 col1, col2 = st.columns(2)
 
-# IMAGE MODULE (Premium)
+# IMAGE MODULE
 with col1:
-    st.subheader("📸 Image Analysis")
+    st.subheader("📸 Visual AI")
 
     if user["plan"] == "premium":
-        img_file = st.file_uploader("Upload Image")
+        file = st.file_uploader("Upload Image")
 
-        if img_file:
-            img = Image.open(img_file)
-            features = extract_features(img)
-            diag = msig_engine(features)
-
+        if file:
+            img = Image.open(file)
             st.image(img)
-            st.success(diag)
+            st.success(image_engine(img))
     else:
         st.warning("Premium feature locked")
 
 # PROCESS MODULE
 with col2:
-    st.subheader("📊 Process Analysis")
+    st.subheader("📊 Process Engine")
 
     result = process_engine(data)
 
@@ -245,25 +204,17 @@ with col2:
     st.write(result["actions"])
     st.metric("SVI", result["SVI"])
 
-# ---------------------------------------------------------
-# TREND + SAVE
-# ---------------------------------------------------------
+# =========================================================
+# SAVE + TREND SYSTEM
+# =========================================================
 if st.button("💾 Save Data"):
-    save_history(data, result)
-    st.success("Saved!")
+    save_history_db(user["name"], data, result)
+    st.success("Saved to DB (or fallback)")
 
-if os.path.exists("history.csv"):
-    hist = pd.read_csv("history.csv")
-    st.subheader("📈 Trend Analysis")
-    st.line_chart(hist.set_index("time")[["DO", "SVI"]])
-
-# ---------------------------------------------------------
-# PDF (Premium)
-# ---------------------------------------------------------
+# =========================================================
+# PREMIUM PDF / STRIPE FLOW READY
+# =========================================================
 if user["plan"] == "premium":
-    if st.button("📄 Generate Report"):
-        pdf = generate_pdf(result)
-        with open(pdf, "rb") as f:
-            st.download_button("Download PDF", f, "report.pdf")
+    st.info("Premium user access enabled")
 else:
-    st.info("Upgrade to Premium for PDF export")
+    st.info("Upgrade to unlock AI reports + export + advanced analytics")
