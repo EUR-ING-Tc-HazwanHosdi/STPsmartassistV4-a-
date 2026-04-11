@@ -1,7 +1,9 @@
 streamlit
-opencv-python-headless
 numpy
 pandas
+opencv-python-headless
 Pillow
-reportlab
 bcrypt
+stripe
+sqlalchemy
+psycopg2-binary
