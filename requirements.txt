@@ -4,6 +4,6 @@ pandas
 opencv-python-headless
 Pillow
 bcrypt
-stripe
+requests
 sqlalchemy
 psycopg2-binary
