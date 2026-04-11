@@ -7,6 +7,10 @@ import os
 import bcrypt
 from sqlalchemy import create_engine
 from datetime import datetime
+import os
+import streamlit as st
+
+st.write("DEBUG DATABASE_URL:", os.getenv("DATABASE_URL"))
 
 # =========================================================
 # CONFIG
