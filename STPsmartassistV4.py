@@ -302,6 +302,11 @@ if "user" in st.session_state:
     # =========================
     st.subheader("🧠 Intelligent Process Diagnosis")
 
+if not user.get("is_paid", False):
+    st.warning("🔒 Upgrade required to use AI diagnosis")
+
+    render_paypal_button(user.get("username"))
+    st.stop()
     severity, issues, actions = stp_diagnosis(sv30, do, mlss, nh3, svi)
 
     # =========================
