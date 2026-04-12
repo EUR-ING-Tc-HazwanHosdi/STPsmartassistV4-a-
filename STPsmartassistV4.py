@@ -258,15 +258,16 @@ if "user" in st.session_state:
         st.write("•", a)
 
     st.metric("SVI", round(svi, 2))
-    st.subheader("📷 Image Analysis")
 
-    img = st.file_uploader("Upload image",   type=["jpg", "png"])
+st.subheader("📷 Image Analysis")
 
-     if img:
-            image = Image.open(img)
-            features = extract_features(image)
-            result = diagnose(features)
+img = st.file_uploader("Upload image", type=["jpg", "png"])
 
-            st.image(image)
-            st.write("Diagnosis:", result["Diagnosis"])
-            st.write("Action:", result["Action"])
+if img:
+    image = Image.open(img)
+    features = extract_features(image)
+    result = diagnose(features)
+
+    st.image(image)
+    st.write("Diagnosis:", result["Diagnosis"])
+    st.write("Action:", result["Action"])
