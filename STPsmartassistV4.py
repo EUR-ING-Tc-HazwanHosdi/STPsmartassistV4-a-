@@ -243,7 +243,8 @@ with tab1:
 
     if st.button("Login"):
         if authenticate(u, p):
-            st.session_state["user"] = u
+            user_data = get_user(u)
+            st.session_state["user"] = user_data
             st.success("Login successful")
         else:
             st.error("Invalid credentials")
