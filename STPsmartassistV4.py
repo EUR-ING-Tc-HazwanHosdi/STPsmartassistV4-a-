@@ -267,18 +267,23 @@ with tab2:
 # =========================================================
 if "user" in st.session_state:
 
-    user = st.session_state.get("user", {})   # ✅ DEFINE USER FIRST
+    # ✅ ALWAYS DEFINE USER FIRST
+    user = st.session_state.get("user", {})
 
+    # ✅ Safe header
     st.header(f"Welcome {user.get('name', 'User')}")
 
-    # Plan status
-    if user.get("is_paid"):
+    # ✅ Plan status
+    if user.get("is_paid", False):
         st.success("🟢 Pro User")
     else:
         st.warning("🟡 Free Plan")
-if not user.get("is_paid", False):
-    st.subheader("🚀 Upgrade to Pro")
-    render_paypal_button(user["username"])
+
+    # ✅ Upgrade button (SAFE)
+    if not user.get("is_paid", False):
+        st.subheader("🚀 Upgrade to Pro")
+        render_paypal_button(user.get("username"))
+
     # =========================
     # INPUTS
     # =========================
