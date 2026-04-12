@@ -262,11 +262,11 @@ if "user" in st.session_state:
 
     img = st.file_uploader("Upload image",   type=["jpg", "png"])
 
-if img:
-    image = Image.open(img)
-    features = extract_features(image)
-    result = diagnose(features)
+     if img:
+            image = Image.open(img)
+            features = extract_features(image)
+            result = diagnose(features)
 
-    st.image(image)
-    st.write("Diagnosis:", result["Diagnosis"])
-    st.write("Action:", result["Action"])
+            st.image(image)
+            st.write("Diagnosis:", result["Diagnosis"])
+            st.write("Action:", result["Action"])
