@@ -244,12 +244,11 @@ with tab1:
 
     if st.button("Login"):
         if authenticate(u, p):
-            user_data = get_user(u)
-            st.session_state["user"] = user_data
+            user_data = get_user(u)   # ✅ get full user from Supabase
+            st.session_state["user"] = user_data   # ✅ store full object
             st.success("Login successful")
         else:
             st.error("Invalid credentials")
-
 
 with tab2:
     ru = st.text_input("Username ", key="ru")
