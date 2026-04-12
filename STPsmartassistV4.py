@@ -267,14 +267,15 @@ with tab2:
 # =========================================================
 if "user" in st.session_state:
 
-    user = st.session_state.get("user", {})
+    user = st.session_state.get("user", {})   # ✅ DEFINE USER FIRST
 
     st.header(f"Welcome {user.get('name', 'User')}")
 
-if user.get("is_paid"):
-    st.success("🟢 Pro User")
-else:
-    st.warning("🟡 Free Plan")
+    # Plan status
+    if user.get("is_paid"):
+        st.success("🟢 Pro User")
+    else:
+        st.warning("🟡 Free Plan")
 if not user.get("is_paid", False):
     st.subheader("🚀 Upgrade to Pro")
     render_paypal_button(user["username"])
