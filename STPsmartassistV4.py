@@ -21,9 +21,25 @@ headers = {
 # =========================================================
 def get_user(username):
     url = f"{SUPABASE_URL}/rest/v1/users?username=eq.{username}"
+
     r = requests.get(url, headers=headers)
-    data = r.json()
-    return data[0] if data else None
+
+    try:
+        data = r.json()
+    except Exception as e:
+        st.error(f"Invalid API response: {e}")
+        return None
+
+    # 🔥 HANDLE ERROR RESPONSE (DICT)
+    if isinstance(data, dict):
+        st.error(f"Supabase Error: {data}")
+        return None
+
+    # 🔥 HANDLE EMPTY LIST
+    if isinstance(data, list) and len(data) > 0:
+        return data[0]
+
+    return None
 
 
 def create_user(username, password, name, plan="free"):
@@ -43,9 +59,10 @@ def create_user(username, password, name, plan="free"):
 def authenticate(username, password):
     user = get_user(username)
 
-    if user and user["password"] == password:
-        return True
-    return False
+    if not user:
+        return False
+
+    return user.get("password") == password
 
 
 # =========================================================
