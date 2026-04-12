@@ -3,6 +3,50 @@ import requests
 import numpy as np
 import cv2
 from PIL import Image
+import streamlit.components.v1 as components
+
+def render_paypal_button(user_email):
+    paypal_sub_button = f"""
+    <div id="paypal-button-container"></div>
+
+    <script src="https://www.paypal.com/sdk/js?client-id=Ab9ej6Zc4XqzZczeNUYOERKyka-PhXoJuNkkgkIAtXVe6-GXZmqDUPjF6NxMwGsCor-oGpx4DFxRz6E5&vault=true&intent=subscription"></script>
+
+    <script>
+    paypal.Buttons({{
+        style: {{
+            shape: 'rect',
+            color: 'gold',
+            layout: 'vertical',
+            label: 'subscribe'
+        }},
+
+        createSubscription: function(data, actions) {{
+            return actions.subscription.create({{
+                plan_id: 'P-0DL15529NM130961FNHNYNPQ'
+            }});
+        }},
+
+        onApprove: function(data, actions) {{
+
+            fetch("https://your-backend-url/paypal-success", {{
+                method: "POST",
+                headers: {{
+                    "Content-Type": "application/json"
+                }},
+                body: JSON.stringify({{
+                    subscriptionID: data.subscriptionID,
+                    email: "{user_email}"
+                }})
+            }});
+
+            alert("Subscription successful!");
+        }}
+
+    }}).render('#paypal-button-container');
+    </script>
+    """
+
+    components.html(paypal_sub_button, height=400)
 
 # =========================================================
 # 1. SUPABASE CONFIG (API MODE - NO POSTGRES)
