@@ -268,7 +268,13 @@ with tab2:
 # =========================================================
 if "user" in st.session_state:
 
-    st.header(f"Welcome {st.session_state['user']}")
+    user = st.session_state["user"]
+st.header(f"Welcome {user['name']}")
+
+if user.get("is_paid"):
+    st.success("🟢 Pro User")
+else:
+    st.warning("🟡 Free Plan")
 
     # =========================
     # INPUTS
