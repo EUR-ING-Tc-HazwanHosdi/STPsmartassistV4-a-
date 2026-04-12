@@ -287,6 +287,12 @@ if "user" in st.session_state:
     if not user.get("is_paid", False):
         st.subheader("🚀 Upgrade to Pro")
         render_paypal_button(user.get("username"))
+    col1, col2 = st.columns([8, 1])
+
+    with col2:
+     if st.button("🚪 Logout"):
+         st.session_state.clear()
+         st.rerun()
 
     # =========================
     # INPUTS
