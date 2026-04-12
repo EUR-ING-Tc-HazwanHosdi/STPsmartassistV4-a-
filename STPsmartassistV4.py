@@ -4,6 +4,10 @@ import numpy as np
 import cv2
 from PIL import Image
 import streamlit.components.v1 as components
+# =========================================================
+# GLOBAL USER (PREVENT NameError EVERYWHERE)
+# =========================================================
+user = st.session_state.get("user", {})
 
 def render_paypal_button(user_email):
     paypal_sub_button = f"""
