@@ -242,16 +242,6 @@ if "user" in st.session_state:
     # =========================
     st.subheader("🧠 Intelligent Process Diagnosis")
 
-    # =========================
-    # CALCULATION (MUST BE HERE)
-    # =========================
-    svi = (sv30 / mlss) * 1000 if mlss else 0
-
-    # =========================
-    # SMART ENGINE
-    # =========================
-    st.subheader("🧠 Intelligent Process Diagnosis")
-
     severity, issues, actions = stp_diagnosis(sv30, do, mlss, nh3, svi)
 
     # =========================
