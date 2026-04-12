@@ -211,19 +211,27 @@ if "user" in st.session_state:
 
     svi = (sv30 / mlss) * 1000 if mlss else 0
 
-    st.subheader("Process Analysis")
+    st.subheader("🧠 Intelligent Process Diagnosis")
 
-    if do < 1.5:
-        st.warning("Low DO")
+svi = (sv30 / mlss) * 1000 if mlss else 0
 
-    if svi > 150:
-        st.warning("Bulking sludge")
+severity, issues, actions = stp_diagnosis(sv30, do, mlss, nh3, svi)
 
-    if nh3 > 10:
-        st.warning("High ammonia load")
+# STATUS
+st.markdown(f"### System Status: {severity}")
 
-    st.metric("SVI", round(svi, 2))
+# DIAGNOSIS
+st.markdown("### 🔍 Diagnosis")
+for i in issues:
+    st.write("•", i)
 
+# ACTIONS
+st.markdown("### ⚡ Recommended Actions")
+for a in actions:
+    st.write("•", a)
+
+# METRICS
+st.metric("SVI", round(svi, 2))
     st.subheader("Image Analysis")
 
     img = st.file_uploader("Upload image", type=["jpg", "png"])
