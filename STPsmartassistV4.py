@@ -204,43 +204,37 @@ if "user" in st.session_state:
 
     st.header(f"Welcome {st.session_state['user']}")
 
+    # =========================
+    # INPUTS
+    # =========================
     sv30 = st.number_input("SV30", 250)
     do = st.number_input("DO", 2.0)
     mlss = st.number_input("MLSS", 3000)
     nh3 = st.number_input("NH3", 5.0)
 
+    # =========================
+    # CALCULATION (MUST BE HERE)
+    # =========================
     svi = (sv30 / mlss) * 1000 if mlss else 0
 
+    # =========================
+    # SMART ENGINE
+    # =========================
     st.subheader("🧠 Intelligent Process Diagnosis")
 
-svi = (sv30 / mlss) * 1000 if mlss else 0
+    severity, issues, actions = stp_diagnosis(sv30, do, mlss, nh3, svi)
 
-severity, issues, actions = stp_diagnosis(sv30, do, mlss, nh3, svi)
+    # =========================
+    # OUTPUT
+    # =========================
+    st.markdown(f"### System Status: {severity}")
 
-# STATUS
-st.markdown(f"### System Status: {severity}")
+    st.markdown("### 🔍 Diagnosis")
+    for i in issues:
+        st.write("•", i)
 
-# DIAGNOSIS
-st.markdown("### 🔍 Diagnosis")
-for i in issues:
-    st.write("•", i)
+    st.markdown("### ⚡ Recommended Actions")
+    for a in actions:
+        st.write("•", a)
 
-# ACTIONS
-st.markdown("### ⚡ Recommended Actions")
-for a in actions:
-    st.write("•", a)
-
-# METRICS
-st.metric("SVI", round(svi, 2))
-st.subheader("Image Analysis")
-
-img = st.file_uploader("Upload image", type=["jpg", "png"])
-
-if img:
-        image = Image.open(img)
-        features = extract_features(image)
-        result = diagnose(features)
-
-        st.image(image)
-        st.write(result["Diagnosis"])
-        st.write(result["Action"])
+    st.metric("SVI", round(svi, 2))
