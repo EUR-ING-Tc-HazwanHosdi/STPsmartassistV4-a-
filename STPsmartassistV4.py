@@ -117,7 +117,46 @@ def diagnose(features):
 
     return MSIG_KNOWLEDGE["SYSTEM_OK"]
 
+def stp_diagnosis(sv30, do, mlss, nh3, svi):
 
+    issues = []
+    actions = []
+    severity = "🟢 Normal"
+
+    # LOW DO
+    if do < 1.5:
+        issues.append("Low Dissolved Oxygen (DO)")
+        actions.append("Increase aeration immediately (target 2.0–3.0 mg/L)")
+        severity = "🔴 Critical"
+
+    # BULKING SLUDGE
+    if svi > 150:
+        issues.append("Bulking Sludge Condition")
+        actions.append("Increase sludge wasting (WAS) and check F/M ratio")
+        severity = "🟠 Warning"
+
+    # HIGH AMMONIA
+    if nh3 > 10:
+        issues.append("High Ammonia Load (Poor Nitrification)")
+        actions.append("Increase aeration + extend aeration time")
+        severity = "🟠 Warning"
+
+    # LOW MLSS
+    if mlss < 1500:
+        issues.append("Low Biomass Concentration")
+        actions.append("Reduce sludge wasting to build biomass")
+
+    # HIGH MLSS
+    if mlss > 5000:
+        issues.append("High MLSS (Overloaded System)")
+        actions.append("Increase sludge wasting and balance F/M ratio")
+
+    # STABLE CONDITION
+    if not issues:
+        issues.append("System Operating Normally")
+        actions.append("Maintain current operation and monitoring")
+
+    return severity, issues, actions
 # =========================================================
 # 5. STREAMLIT UI
 # =========================================================
