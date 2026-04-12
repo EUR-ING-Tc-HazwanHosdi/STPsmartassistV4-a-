@@ -259,15 +259,21 @@ if "user" in st.session_state:
 
     st.metric("SVI", round(svi, 2))
 
-st.subheader("📷 Image Analysis")
+# =========================
+    # IMAGE ANALYSIS (INSIDE LOGIN)
+    # =========================
+    st.subheader("📷 Image Analysis")
 
-img = st.file_uploader("Upload image", type=["jpg", "png"])
+    img = st.file_uploader("Upload image", type=["jpg", "png"])
 
-if img:
-    image = Image.open(img)
-    features = extract_features(image)
-    result = diagnose(features)
+    if img:
+        image = Image.open(img)
+        features = extract_features(image)
+        result = diagnose(features)
 
-    st.image(image)
-    st.write("Diagnosis:", result["Diagnosis"])
-    st.write("Action:", result["Action"])
+        st.image(image)
+        st.write("Diagnosis:", result["Diagnosis"])
+        st.write("Action:", result["Action"])
+
+else:
+    st.info("Please login to access STP Smart Assist system.")
