@@ -228,9 +228,19 @@ if "user" in st.session_state:
     # INPUTS
     # =========================
     sv30 = st.number_input("SV30", value=250.0, min_value=0.0)
-do = st.number_input("DO", value=2.0, min_value=0.0)
-mlss = st.number_input("MLSS", value=3000.0, min_value=1.0)
-nh3 = st.number_input("NH3", value=5.0, min_value=0.0)
+    do = st.number_input("DO", value=2.0, min_value=0.0)
+    mlss = st.number_input("MLSS", value=3000.0, min_value=1.0)
+    nh3 = st.number_input("NH3", value=5.0, min_value=0.0)
+
+    # =========================
+    # CALCULATION (MUST BE HERE)
+    # =========================
+    svi = (sv30 / mlss) * 1000 if mlss else 0
+
+    # =========================
+    # SMART ENGINE
+    # =========================
+    st.subheader("🧠 Intelligent Process Diagnosis")
 
     # =========================
     # CALCULATION (MUST BE HERE)
