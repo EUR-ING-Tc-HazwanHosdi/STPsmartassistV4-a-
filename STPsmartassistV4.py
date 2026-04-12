@@ -267,8 +267,9 @@ with tab2:
 # =========================================================
 if "user" in st.session_state:
 
-    user = st.session_state["user"]
-st.header(f"Welcome {user['name']}")
+    user = st.session_state.get("user", {})
+
+    st.header(f"Welcome {user.get('name', 'User')}")
 
 if user.get("is_paid"):
     st.success("🟢 Pro User")
