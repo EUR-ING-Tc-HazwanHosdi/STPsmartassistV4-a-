@@ -231,7 +231,7 @@ def stp_diagnosis(sv30, do, mlss, nh3, svi):
 # =========================================================
 st.set_page_config("STP Smart Assist SaaS", layout="wide")
 
-st.title("🌊 STP Smart Assist SaaS (API Mode)")
+st.title("🌊 STP Smart Assist Pro")
 
 # DB INFO (API MODE = ALWAYS ONLINE)
 st.success("🟢 API Backend Active (No Database Connection Errors)")
@@ -286,7 +286,7 @@ if "user" in st.session_state:
     # ✅ Upgrade button (SAFE)
     if not user.get("is_paid", False):
         st.subheader("🚀 Upgrade to Pro")
-        render_paypal_button(user.get("username"))
+        #render_paypal_button(user.get("username"))
     col1, col2 = st.columns([8, 1])
 
     with col2:
