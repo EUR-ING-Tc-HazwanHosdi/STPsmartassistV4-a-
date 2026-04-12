@@ -94,7 +94,9 @@ def create_user(username, password, name, plan="free"):
         "password": password,
         "name": name,
         "plan": plan
-    }
+        "is_paid": False,
+        "email": username  # temporary: username = email
+     }
 
     r = requests.post(url, json=payload, headers=headers)
     return r.status_code == 201
