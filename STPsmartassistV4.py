@@ -259,7 +259,7 @@ if "user" in st.session_state:
 
     st.metric("SVI", round(svi, 2))
 
-# =========================
+    # =========================
     # IMAGE ANALYSIS (INSIDE LOGIN)
     # =========================
     st.subheader("📷 Image Analysis")
