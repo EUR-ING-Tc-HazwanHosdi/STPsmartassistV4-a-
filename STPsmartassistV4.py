@@ -236,7 +236,7 @@ st.subheader("Image Analysis")
 
 img = st.file_uploader("Upload image", type=["jpg", "png"])
 
-    if img:
+if img:
         image = Image.open(img)
         features = extract_features(image)
         result = diagnose(features)
