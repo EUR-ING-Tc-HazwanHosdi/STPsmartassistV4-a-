@@ -8,7 +8,7 @@ from PIL import Image
 # 1. SUPABASE CONFIG (API MODE - NO POSTGRES)
 # =========================================================
 SUPABASE_URL = "https://imyaqnitshcwfplyfotl.supabase.co"
-SUPABASE_KEY = "YOUR_SUPABASE_ANON_KEY"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlteWFxbml0c2hjd2ZwbHlmb3RsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU4OTc5MjMsImV4cCI6MjA5MTQ3MzkyM30.VRHmKYGPMl3QQVXY45UMbGWuYCB6GFgqoC6Jo9RE9ws"
 
 headers = {
     "apikey": SUPABASE_KEY,
