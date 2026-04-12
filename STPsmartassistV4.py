@@ -227,10 +227,10 @@ if "user" in st.session_state:
     # =========================
     # INPUTS
     # =========================
-    sv30 = st.number_input("SV30", value=250,   min_value=0.0)
-      do = st.number_input("DO", value=2.0, min_value=0.0)
+    sv30 = st.number_input("SV30", value=250, min_value=0.0)
+    do = st.number_input("DO", value=2.0, min_value=0.0)
     mlss = st.number_input("MLSS", value=3000, min_value=1.0)
-     nh3 = st.number_input("NH3", value=5.0,   min_value=0.0)
+    nh3 = st.number_input("NH3", value=5.0, min_value=0.0)
 
     # =========================
     # CALCULATION (MUST BE HERE)
