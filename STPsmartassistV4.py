@@ -258,7 +258,7 @@ if "user" in st.session_state:
         st.write("•", a)
 
     st.metric("SVI", round(svi, 2))
-st.subheader("📷 Image Analysis")
+    st.subheader("📷 Image Analysis")
 
 img = st.file_uploader("Upload image", type=["jpg", "png"])
 
