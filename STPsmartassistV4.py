@@ -275,7 +275,9 @@ if user.get("is_paid"):
     st.success("🟢 Pro User")
 else:
     st.warning("🟡 Free Plan")
-
+if not user.get("is_paid", False):
+    st.subheader("🚀 Upgrade to Pro")
+    render_paypal_button(user["email"])
     # =========================
     # INPUTS
     # =========================
