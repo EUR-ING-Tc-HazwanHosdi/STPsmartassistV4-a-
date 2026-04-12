@@ -95,27 +95,47 @@ def extract_features(img):
     image = np.array(img)
     gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
 
+    brightness = np.mean(gray)
+    contrast = np.std(gray)
+
     foam = np.mean(gray > 200)
-    dark = np.mean(gray < 50)
+    dark = np.mean(gray < 60)
+
+    texture = cv2.Laplacian(gray, cv2.CV_64F).var()
 
     return {
         "foam": foam,
         "dark": dark,
-        "brightness": np.mean(gray)
+        "brightness": brightness,
+        "contrast": contrast,
+        "texture": texture
     }
 
 
 def diagnose(features):
+
     if features["dark"] > 0.4:
-        return MSIG_KNOWLEDGE["DARK_SEPTIC"]
+        return {
+            "Diagnosis": "Anaerobic / Septic Condition",
+            "Action": "Increase aeration immediately"
+        }
 
     if features["foam"] > 0.15:
-        if features["brightness"] > 180:
-            return MSIG_KNOWLEDGE["FOAM_WHITE"]
-        else:
-            return MSIG_KNOWLEDGE["FOAM_BROWN"]
+        return {
+            "Diagnosis": "Foaming Sludge Detected",
+            "Action": "Check FOG loading and reduce sludge age"
+        }
 
-    return MSIG_KNOWLEDGE["SYSTEM_OK"]
+    if features["texture"] < 40:
+        return {
+            "Diagnosis": "Low Biological Activity",
+            "Action": "Check MLSS and nutrient balance"
+        }
+
+    return {
+        "Diagnosis": "Normal Activated Sludge Condition",
+        "Action": "Maintain current operation"
+    }
 
 def stp_diagnosis(sv30, do, mlss, nh3, svi):
 
@@ -238,3 +258,15 @@ if "user" in st.session_state:
         st.write("•", a)
 
     st.metric("SVI", round(svi, 2))
+st.subheader("📷 Image Analysis")
+
+img = st.file_uploader("Upload image", type=["jpg", "png"])
+
+if img:
+    image = Image.open(img)
+    features = extract_features(image)
+    result = diagnose(features)
+
+    st.image(image)
+    st.write("Diagnosis:", result["Diagnosis"])
+    st.write("Action:", result["Action"])
