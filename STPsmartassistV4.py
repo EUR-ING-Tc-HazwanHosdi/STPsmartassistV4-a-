@@ -281,13 +281,14 @@ def has_access(user, feature):
     if not user:
         return False
 
-    plan = "pro" if user.get("is_paid", False) else "free"
+    is_paid = bool(user.get("is_paid", False))
+
     required = FEATURE_ACCESS.get(feature, "free")
 
     if required == "free":
         return True
 
-    return plan == "pro"
+    return is_paid
 # =========================================================
 # 7. MAIN DASHBOARD (FIXED FREEMIUM FLOW)
 # =========================================================
