@@ -366,22 +366,18 @@ else:
 
     img = st.file_uploader("Upload image", type=["jpg", "png"])
 
-    if img:
-        image = Image.open(img)
-        features = extract_features(image)
-        result = diagnose(features)
+    if img is not None:
+    image = Image.open(img)
+    features = extract_features(image)
+    result = diagnose(features)
 
-        st.image(image)
-        st.write("Basic Diagnosis:", result["Diagnosis"])
-        st.write("Action:", result["Action"])
+    st.image(image)
+    st.write("Basic Diagnosis:", result["Diagnosis"])
+    st.write("Action:", result["Action"])
 
-        if has_access(user, "advanced_image"):
-            st.success("🟢 Pro Image Insights")
-            st.write("🔬 High-resolution texture analysis enabled")
-            st.write("📊 Foam classification enhanced")
-        else:
-            st.info("Upgrade to Pro for deeper image analytics")
-
-else:
-    st.info("Please login to access STP Smart Assist system.")
-    
+    if has_access(user, "advanced_image"):
+        st.success("🟢 Pro Image Insights")
+        st.write("🔬 High-resolution texture analysis enabled")
+        st.write("📊 Foam classification enhanced")
+    else:
+        st.info("Upgrade to Pro for deeper image analytics")
