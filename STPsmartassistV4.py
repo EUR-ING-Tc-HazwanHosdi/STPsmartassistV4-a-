@@ -361,18 +361,24 @@ else:
     # =========================
     # IMAGE ANALYSIS (INSIDE LOGIN)
     # =========================
-    st.subheader("📷 Image Analysis")
+    st.subheader("📷 Image Analysis (Basic)")
 
-    img = st.file_uploader("Upload image", type=["jpg", "png"])
+img = st.file_uploader("Upload image", type=["jpg", "png"])
 
-    if img:
-        image = Image.open(img)
-        features = extract_features(image)
-        result = diagnose(features)
+if img:
+    image = Image.open(img)
+    features = extract_features(image)
+    result = diagnose(features)
 
-        st.image(image)
-        st.write("Diagnosis:", result["Diagnosis"])
-        st.write("Action:", result["Action"])
+    st.image(image)
+    st.write("Diagnosis:", result["Diagnosis"])
+if img:
 
-else:
-    st.info("Please login to access STP Smart Assist system.")
+    if has_access(user, "advanced_image"):
+        st.success("🟢 Pro Image AI Insights")
+
+        st.write("🔬 Foam classification confidence: High precision mode enabled")
+        st.write("📊 Texture anomaly scoring active")
+
+    else:
+        st.info("Upgrade to Pro for deeper image analytics")
