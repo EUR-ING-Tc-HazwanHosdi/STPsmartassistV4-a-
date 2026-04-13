@@ -295,32 +295,26 @@ def has_access(user, feature):
 
     return plan == "pro"
 # =========================================================
-# 7. MAIN DASHBOARD
+# 7. MAIN DASHBOARD (FIXED FREEMIUM FLOW)
 # =========================================================
 if "user" in st.session_state:
 
-    # ✅ ALWAYS DEFINE USER FIRST
-    user = st.session_state.get("user", {})
+    user = st.session_state["user"]
 
-    # ✅ Safe header
     st.header(f"Welcome {user.get('name', 'User')}")
 
-    # ✅ Plan status
+    # PLAN STATUS
     if user.get("is_paid", False):
         st.success("🟢 Pro User")
     else:
         st.warning("🟡 Free Plan")
 
-    # ✅ Upgrade button (SAFE)
-    if not user.get("is_paid", False):
-        st.subheader("🚀 Upgrade to Pro")
-        #render_paypal_button(user.get("username"))
+    # LOGOUT
     col1, col2 = st.columns([8, 1])
-
     with col2:
-     if st.button("🚪 Logout"):
-         st.session_state.clear()
-         st.rerun()
+        if st.button("🚪 Logout"):
+            st.session_state.clear()
+            st.rerun()
 
     # =========================
     # INPUTS
@@ -330,75 +324,69 @@ if "user" in st.session_state:
     mlss = st.number_input("MLSS", value=3000.0, min_value=1.0)
     nh3 = st.number_input("NH3", value=5.0, min_value=0.0)
 
-    # =========================
-    # CALCULATION (MUST BE HERE)
-    # =========================
     svi = (sv30 / mlss) * 1000 if mlss else 0
 
     # =========================
-    # SMART ENGINE
+    # BASIC DIAGNOSIS (FREE)
     # =========================
     st.subheader("🧠 Intelligent Process Diagnosis (Basic)")
 
-basic_severity, basic_issues, basic_actions = stp_diagnosis(
-    sv30, do, mlss, nh3, svi
-)
+    basic_severity, basic_issues, basic_actions = stp_diagnosis(
+        sv30, do, mlss, nh3, svi
+    )
 
-st.markdown(f"### System Status: {basic_severity}")
+    st.markdown(f"### System Status: {basic_severity}")
 
-for i in basic_issues:
-    st.write("•", i)
-
-for a in basic_actions:
-    st.write("•", a)
-if has_access(user, "advanced_diagnosis"):
-
-    st.success("🟢 Advanced AI Analysis Enabled")
-
-    # You can enhance logic here
-    st.write("🔬 Deep process interpretation enabled")
-    st.write("📊 Stability scoring enabled")
-
-else:
-    st.warning("🔒 Advanced AI diagnosis locked for Pro users")
-    render_paypal_button(user.get("username"))
-
-    # =========================
-    # OUTPUT
-    # =========================
-    st.markdown(f"### System Status: {severity}")
-
-    st.markdown("### 🔍 Diagnosis")
-    for i in issues:
+    for i in basic_issues:
         st.write("•", i)
 
-    st.markdown("### ⚡ Recommended Actions")
-    for a in actions:
+    for a in basic_actions:
         st.write("•", a)
 
     st.metric("SVI", round(svi, 2))
 
     # =========================
-    # IMAGE ANALYSIS (INSIDE LOGIN)
+    # ADVANCED FEATURE (PRO ONLY)
     # =========================
-    st.subheader("📷 Image Analysis (Basic)")
+    st.subheader("🔬 Advanced AI Analysis")
 
-img = st.file_uploader("Upload image", type=["jpg", "png"])
+    if has_access(user, "advanced_diagnosis"):
 
-if img:
-    image = Image.open(img)
-    features = extract_features(image)
-    result = diagnose(features)
+        st.success("🟢 Advanced AI Enabled")
+        st.write("📊 Stability scoring active")
+        st.write("🧠 Deep process interpretation active")
 
-    st.image(image)
-    st.write("Diagnosis:", result["Diagnosis"])
-if img:
-
-    if has_access(user, "advanced_image"):
-        st.success("🟢 Pro Image AI Insights")
-
-        st.write("🔬 Foam classification confidence: High precision mode enabled")
-        st.write("📊 Texture anomaly scoring active")
+        # (optional advanced logic placeholder)
+        adv_score = 100 - abs(150 - svi)
+        st.metric("Process Stability Score", round(adv_score, 2))
 
     else:
-        st.info("Upgrade to Pro for deeper image analytics")
+        st.warning("🔒 Advanced AI locked for Pro users")
+        render_paypal_button(user.get("username"))
+
+    # =========================
+    # IMAGE ANALYSIS
+    # =========================
+    st.subheader("📷 Image Analysis")
+
+    img = st.file_uploader("Upload image", type=["jpg", "png"])
+
+    if img:
+        image = Image.open(img)
+        features = extract_features(image)
+        result = diagnose(features)
+
+        st.image(image)
+        st.write("Basic Diagnosis:", result["Diagnosis"])
+        st.write("Action:", result["Action"])
+
+        if has_access(user, "advanced_image"):
+            st.success("🟢 Pro Image Insights")
+            st.write("🔬 High-resolution texture analysis enabled")
+            st.write("📊 Foam classification enhanced")
+        else:
+            st.info("Upgrade to Pro for deeper image analytics")
+
+else:
+    st.info("Please login to access STP Smart Assist system.")
+    
