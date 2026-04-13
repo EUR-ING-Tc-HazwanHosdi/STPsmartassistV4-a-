@@ -299,8 +299,8 @@ if "user" in st.session_state:
     st.header(f"Welcome {user.get('name', 'User')}")
 
     # PLAN STATUS
-if user.get("is_paid"):
-    st.success("🟢 Pro User")   # ✅ indented
+if user.get("is_paid") is True:
+    st.success("🟢 Pro User")
 else:
     st.warning("🟡 Free Plan")
 
