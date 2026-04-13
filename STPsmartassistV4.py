@@ -11,6 +11,16 @@ user = st.session_state.get("user", None)
 if user is None:
     user = {}
 
+if "usage" not in st.session_state:
+    st.session_state["usage"] = 0
+
+st.session_state["usage"] += 1
+
+if st.session_state["usage"] > 5 and not user.get("is_paid"):
+    st.warning("🔒 Free limit reached (5 uses)")
+    render_paypal_button(user.get("username"))
+    st.stop()
+
 def render_paypal_button(user_email):
     paypal_sub_button = f"""
     <div id="paypal-button-container"></div>
