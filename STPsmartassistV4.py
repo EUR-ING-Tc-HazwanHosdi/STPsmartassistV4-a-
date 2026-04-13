@@ -7,14 +7,6 @@ import streamlit.components.v1 as components
 # =========================================================
 # GLOBAL USER (PREVENT NameError EVERYWHERE)
 # =========================================================
-FEATURE_ACCESS = {
-    "basic_diagnosis": "free",
-    "image_basic": "free",
-    "advanced_diagnosis": "pro",
-    "advanced_image": "pro"
-}
-
-
 user = st.session_state.get("user", {})
 
 def render_paypal_button(user_email):
