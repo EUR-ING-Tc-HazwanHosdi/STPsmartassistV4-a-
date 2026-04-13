@@ -384,9 +384,10 @@ Upgrade to Pro to access:
 render_paypal_button(user.get("username"))
 
     # =========================
-    # IMAGE ANALYSIS
-    # =========================
-    st.subheader("📷 Image Analysis")
+# IMAGE ANALYSIS
+# =========================
+
+st.subheader("📷 Image Analysis")
 
     img = st.file_uploader("Upload image", type=["jpg", "png"])
 
