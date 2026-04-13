@@ -273,7 +273,27 @@ with tab2:
         else:
             st.error("Registration failed")
 
+# =========================================================
+# FREEMIUM ACCESS CONTROL (FIXED)
+# =========================================================
+FEATURE_ACCESS = {
+    "basic_diagnosis": "free",
+    "advanced_diagnosis": "pro",
+    "image_basic": "free",
+    "image_advanced": "pro"
+}
 
+def has_access(user, feature):
+    if not user:
+        return False
+
+    plan = "pro" if user.get("is_paid", False) else "free"
+    required = FEATURE_ACCESS.get(feature, "free")
+
+    if required == "free":
+        return True
+
+    return plan == "pro"
 # =========================================================
 # 7. MAIN DASHBOARD
 # =========================================================
