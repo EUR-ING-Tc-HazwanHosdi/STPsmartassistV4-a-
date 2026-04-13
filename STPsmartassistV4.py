@@ -356,8 +356,8 @@ if "user" in st.session_state:
 
     else:
         st.warning("🔒 Advanced AI locked for Pro users")
-        render_paypal_button(user.get("username"))
 
+render_paypal_button(user.get("username"))
     # =========================
     # IMAGE ANALYSIS
     # =========================
