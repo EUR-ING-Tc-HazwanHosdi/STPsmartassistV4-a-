@@ -7,7 +7,9 @@ import streamlit.components.v1 as components
 # =========================================================
 # GLOBAL USER (PREVENT NameError EVERYWHERE)
 # =========================================================
-user = st.session_state["user"]
+user = st.session_state.get("user", None)
+    if user is None:
+       user = {}
 
 def render_paypal_button(user_email):
     paypal_sub_button = f"""
