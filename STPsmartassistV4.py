@@ -292,6 +292,12 @@ def has_access(user, feature):
 # =========================================================
 # 7. MAIN DASHBOARD (FIXED FREEMIUM FLOW)
 # =========================================================
+user = st.session_state.get("user")
+
+if not user:
+    st.info("🔐 Please login to access STP Smart Assist system")
+    st.stop()
+
 if "user" in st.session_state:
 
     user = st.session_state["user"]
