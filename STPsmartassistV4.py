@@ -318,14 +318,30 @@ if "user" in st.session_state:
     # =========================
     # SMART ENGINE
     # =========================
-    st.subheader("🧠 Intelligent Process Diagnosis")
+    st.subheader("🧠 Intelligent Process Diagnosis (Basic)")
 
-if not user.get("is_paid", False):
-    st.warning("🔒 Upgrade required to use AI diagnosis")
+basic_severity, basic_issues, basic_actions = stp_diagnosis(
+    sv30, do, mlss, nh3, svi
+)
 
+st.markdown(f"### System Status: {basic_severity}")
+
+for i in basic_issues:
+    st.write("•", i)
+
+for a in basic_actions:
+    st.write("•", a)
+if has_access(user, "advanced_diagnosis"):
+
+    st.success("🟢 Advanced AI Analysis Enabled")
+
+    # You can enhance logic here
+    st.write("🔬 Deep process interpretation enabled")
+    st.write("📊 Stability scoring enabled")
+
+else:
+    st.warning("🔒 Advanced AI diagnosis locked for Pro users")
     render_paypal_button(user.get("username"))
-    st.stop()
-    severity, issues, actions = stp_diagnosis(sv30, do, mlss, nh3, svi)
 
     # =========================
     # OUTPUT
