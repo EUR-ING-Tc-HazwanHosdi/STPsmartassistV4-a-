@@ -299,10 +299,10 @@ if "user" in st.session_state:
     st.header(f"Welcome {user.get('name', 'User')}")
 
     # PLAN STATUS
-    if user.get("is_paid", False):
-        st.success("🟢 Pro User")
-    else:
-        st.warning("🟡 Free Plan")
+    if user.get("is_paid") is True:
+    st.success("🟢 Pro User")
+else:
+    st.warning("🟡 Free Plan")
 
     # LOGOUT
     col1, col2 = st.columns([8, 1])
