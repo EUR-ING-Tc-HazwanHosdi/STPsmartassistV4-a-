@@ -372,17 +372,24 @@ else:
         st.metric("Process Stability Score", round(adv_score, 2))
 
     else:
-        st.warning("🔒 Unlock Advanced AI Features")
+        st.warning("🔒 Advanced AI is locked")
 
 st.markdown("""
-Upgrade to Pro to access:
-- 🔬 Deep process analysis  
-- 📊 Stability scoring  
-- 🤖 Advanced AI insights  
+### 🚀 Unlock Full STP Intelligence
+
+Get access to:
+
+- 🔬 Deep biological process diagnosis  
+- 📊 Real-time stability scoring  
+- 🤖 AI-based operational recommendations  
+- 📷 Advanced image interpretation  
+
+👉 Upgrade now to optimize plant performance
 """)
 
-render_paypal_button(user.get("username"))
+st.info("💡 Free users are limited to basic diagnostics only")
 
+render_paypal_button(user.get("username"))
     # =========================
 # IMAGE ANALYSIS
 # =========================
