@@ -366,7 +366,7 @@ else:
 
     img = st.file_uploader("Upload image", type=["jpg", "png"])
 
-    if img is not None:
+ if img is not None:
     image = Image.open(img)
     features = extract_features(image)
     result = diagnose(features)
