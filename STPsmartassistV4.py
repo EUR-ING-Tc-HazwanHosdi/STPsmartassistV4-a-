@@ -362,8 +362,16 @@ else:
         st.metric("Process Stability Score", round(adv_score, 2))
 
     else:
-        st.warning("🔒 Advanced AI locked for Pro users")
-        render_paypal_button(user.get("username"))
+        st.warning("🔒 Unlock Advanced AI Features")
+
+st.markdown("""
+Upgrade to Pro to access:
+- 🔬 Deep process analysis  
+- 📊 Stability scoring  
+- 🤖 Advanced AI insights  
+""")
+
+render_paypal_button(user.get("username"))
 
     # =========================
     # IMAGE ANALYSIS
