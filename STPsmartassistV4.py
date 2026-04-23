@@ -152,11 +152,11 @@ def stability_score(svi, mlss, do, srt, fm):
     if svi > 150: score -= 20
     if do < 2: score -= 20
     if srt < 3:
-    score -= 30
+     score -= 30
     elif 3 <= srt < 5:
-    score -= 10   # <-- ADD THIS (critical)
+     score -= 10   # <-- ADD THIS (critical)
     elif srt > 20:
-    score -= 10
+     score -= 10
     if fm < 0.1 or fm > 0.5: score -= 15
 
     return max(0, min(100, score))
