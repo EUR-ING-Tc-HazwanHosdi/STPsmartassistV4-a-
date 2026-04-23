@@ -86,26 +86,9 @@ def diagnose_process(do, mlss, nh3, svi, srt, fm):
     severity = "🟢 Normal"
     process = "Stable Operation"
 
-# PRIORITY OVERRIDES
-if do < 2 and nh3 > 10:
-    process = "Oxygen-Limited Nitrification Failure"
-
-elif do < 2:
-    process = "Oxygen Limitation"
-
-elif nh3 > 10:
-    process = "Nitrification Failure"
-
-elif fm < 0.1:
-    process = "Underloaded System"
-
-elif fm > 0.5:
-    process = "Overloaded System"
-
-elif svi > 150:
-    process = "Settling Issue (Bulking Risk)"
-
+    # =========================================
     # 1. WASHOUT (TOP PRIORITY)
+    # =========================================
     if mlss < 500 or srt < 3:
         severity = "🔴 Critical"
         process = "Biomass Washout"
@@ -118,41 +101,43 @@ elif svi > 150:
         ]
         return severity, process, issues, actions
 
-    # 2. LOADING CONDITION (F/M)
-    if fm < 0.1:
-        severity = "🟠 Warning"
+    # =========================================
+    # PROCESS CONDITION LOGIC (FIXED)
+    # =========================================
+    if do < 2 and nh3 > 10:
+        process = "Oxygen-Limited Nitrification Failure"
+
+    elif do < 2:
+        process = "Oxygen Limitation"
+
+    elif nh3 > 10:
+        process = "Nitrification Failure"
+
+    elif fm < 0.1:
         process = "Underloaded System"
 
-        issues.append("Low F/M Ratio")
-        actions.append("Reduce aeration or increase loading")
-
     elif fm > 0.5:
-        severity = "🟠 Warning"
         process = "Overloaded System"
 
-        issues.append("High F/M Ratio")
-        actions.append("Increase aeration or biomass")
+    elif svi > 150:
+        process = "Settling Issue (Bulking Risk)"
 
-    # 3. DO CONTROL
+    # =========================================
+    # ISSUES & ACTIONS
+    # =========================================
     if do < 2:
         severity = "🔴 Critical"
         issues.append("Low Dissolved Oxygen")
         actions.append("Increase aeration (2–3 mg/L)")
 
-    elif do > 5:
-        issues.append("Excessive Aeration")
-        actions.append("Reduce aeration (energy saving)")
-
-    # 4. SETTLING (SVI)
-    if 1500 <= mlss <= 5000:
-        if svi > 200:
-            issues.append("Bulking Sludge")
-            actions.append("Check filamentous bacteria / adjust F/M")
-
-    # 5. AMMONIA
     if nh3 > 10:
+        severity = "🔴 Critical"
         issues.append("High Ammonia")
         actions.append("Increase aeration + SRT")
+
+    if svi > 150:
+        issues.append("Poor Settling (High SVI)")
+        actions.append("Check sludge condition / F/M ratio")
 
     if not issues:
         issues.append("System Operating Normally")
