@@ -86,6 +86,25 @@ def diagnose_process(do, mlss, nh3, svi, srt, fm):
     severity = "🟢 Normal"
     process = "Stable Operation"
 
+# PRIORITY OVERRIDES
+if do < 2 and nh3 > 10:
+    process = "Oxygen-Limited Nitrification Failure"
+
+elif do < 2:
+    process = "Oxygen Limitation"
+
+elif nh3 > 10:
+    process = "Nitrification Failure"
+
+elif fm < 0.1:
+    process = "Underloaded System"
+
+elif fm > 0.5:
+    process = "Overloaded System"
+
+elif svi > 150:
+    process = "Settling Issue (Bulking Risk)"
+
     # 1. WASHOUT (TOP PRIORITY)
     if mlss < 500 or srt < 3:
         severity = "🔴 Critical"
