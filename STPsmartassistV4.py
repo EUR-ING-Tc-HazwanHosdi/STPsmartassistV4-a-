@@ -10,10 +10,10 @@ import hashlib
 # =========================================================
 # STREAMLIT CONFIG
 # =========================================================
-st.set_page_config("STP Smart Assist SaaS", layout="wide")
+st.set_page_config("STP Smart Assist Pro", layout="wide")
 
 # =========================================================
-# USER DB (LOCAL JSON FILE)
+# USER DATABASE (LOCAL JSON)
 # =========================================================
 USER_DB_FILE = "users.json"
 
@@ -36,48 +36,10 @@ def hash_password(password):
 if "user" not in st.session_state:
     st.session_state["user"] = None
 
-if "usage" not in st.session_state:
-    st.session_state["usage"] = 0
-
-st.session_state["usage"] += 1
-
 user = st.session_state["user"]
 
 # =========================================================
-# PAYPAL LIMIT SYSTEM
-# =========================================================
-def render_paypal_button(user_email):
-    paypal_sub_button = f"""
-    <div id="paypal-button-container"></div>
-
-    <script src="https://www.paypal.com/sdk/js?client-id=YOUR_CLIENT_ID&vault=true&intent=subscription"></script>
-
-    <script>
-    paypal.Buttons({{
-        createSubscription: function(data, actions) {{
-            return actions.subscription.create({{
-                plan_id: 'YOUR_PLAN_ID'
-            }});
-        }},
-
-        onApprove: function(data, actions) {{
-            alert("Subscription successful!");
-        }}
-    }}).render('#paypal-button-container');
-    </script>
-    """
-    components.html(paypal_sub_button, height=400)
-
-# =========================================================
-# LIMIT CONTROL
-# =========================================================
-if st.session_state["usage"] > 5 and user and not user.get("is_paid"):
-    st.warning("🔒 Free limit reached (5 uses)")
-    render_paypal_button(user.get("username"))
-    st.stop()
-
-# =========================================================
-# AUTH SYSTEM (LOCAL)
+# AUTH SYSTEM
 # =========================================================
 def get_user(username):
     users = load_users()
@@ -108,7 +70,31 @@ def authenticate(username, password):
     return user["password"] == hash_password(password)
 
 # =========================================================
-# STP KNOWLEDGE BASE
+# PAYPAL (OPTIONAL - NOT FORCING ANY LIMIT)
+# =========================================================
+def render_paypal_button(user_email):
+    paypal_html = """
+    <div id="paypal-button-container"></div>
+
+    <script src="https://www.paypal.com/sdk/js?client-id=YOUR_CLIENT_ID&vault=true&intent=subscription"></script>
+
+    <script>
+    paypal.Buttons({
+        createSubscription: function(data, actions) {
+            return actions.subscription.create({
+                plan_id: 'YOUR_PLAN_ID'
+            });
+        },
+        onApprove: function(data, actions) {
+            alert("Subscription successful!");
+        }
+    }).render('#paypal-button-container');
+    </script>
+    """
+    components.html(paypal_html, height=400)
+
+# =========================================================
+# STP DIAGNOSIS ENGINE
 # =========================================================
 def stp_diagnosis(sv30, do, mlss, nh3, svi):
 
@@ -173,10 +159,10 @@ def diagnose(features):
     return {"Diagnosis": "Normal Condition", "Action": "Maintain operation"}
 
 # =========================================================
-# UI
+# UI HEADER
 # =========================================================
 st.title("🌊 STP Smart Assist Pro")
-st.success("🟢 System Running (No Database Required)")
+st.success("🟢 System Active (Unlimited Access Mode)")
 
 # =========================================================
 # LOGIN / REGISTER
@@ -212,20 +198,19 @@ with tab2:
 user = st.session_state.get("user")
 
 if not user:
-    st.info("🔐 Please login to continue")
+    st.info("🔐 Please login to access system")
     st.stop()
 
 st.header(f"Welcome {user.get('name')}")
 
 # =========================================================
-# PLAN STATUS
+# PLAN STATUS (NO LIMITS)
 # =========================================================
 if user.get("is_paid"):
     st.success("🟢 Pro User")
 else:
-    st.warning("🟡 Free Plan")
+    st.warning("🟡 Free User (No Restrictions)")
 
-# Logout
 if st.button("🚪 Logout"):
     st.session_state.clear()
     st.rerun()
@@ -258,17 +243,14 @@ for a in actions:
 st.metric("SVI", round(svi, 2))
 
 # =========================================================
-# ADVANCED FEATURE
+# ADVANCED SECTION (UNLOCKED LOGIC ONLY)
 # =========================================================
 st.subheader("🔬 Advanced AI Analysis")
 
-if user.get("is_paid"):
-    st.success("Advanced AI Enabled")
-    st.write("Stability scoring active")
-    score = 100 - abs(150 - svi)
-    st.metric("Stability Score", round(score, 2))
-else:
-    st.warning("🔒 Upgrade required")
+st.success("Advanced features available (no restriction mode)")
+
+adv_score = 100 - abs(150 - svi)
+st.metric("Stability Score", round(adv_score, 2))
 
 # =========================================================
 # IMAGE ANALYSIS
@@ -283,23 +265,7 @@ if img:
     result = diagnose(features)
 
     st.image(image)
-    st.write(result["Diagnosis"])
-    st.write(result["Action"])
+    st.write("Diagnosis:", result["Diagnosis"])
+    st.write("Action:", result["Action"])
 
-    if user.get("is_paid"):
-        st.success("Pro Image Insights Enabled")
-    else:
-        st.info("Upgrade for advanced analytics")
-
-# =========================================================
-# UPGRADE SECTION
-# =========================================================
-st.markdown("""
-### 🚀 Unlock Full STP Intelligence
-
-- Deep biological analysis  
-- Stability scoring  
-- Advanced image processing  
-""")
-
-st.info("Free users are limited to basic diagnostics")
+    st.success("Advanced image analysis enabled")
